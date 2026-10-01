@@ -9,6 +9,7 @@ from scripts.eagleapi import api_item
 from scripts.eagleapi import api_util
 from scripts.parser import Parser
 from scripts.tag_generator import TagGenerator
+from scripts.eagle_prompt_rules import matching_tags, saved_positive_prompt
 
 DEBUG = False
 def dprint(str):
@@ -28,6 +29,19 @@ def on_ui_settings():
     shared.opts.add_option("use_prompt_parser_when_save_prompt_to_eagle_as_tags", shared.OptionInfo(False, "Use prompt parser when save prompt to eagle as tags", section=("eagle_pnginfo", "Eagle Pnginfo")))
     # txt: Additinal tags
     shared.opts.add_option("additional_tags_to_eagle", shared.OptionInfo("", "Additinal tag pattern", section=("eagle_pnginfo", "Eagle Pnginfo")))
+    section = ("eagle_pnginfo", "Eagle Pnginfo")
+    shared.opts.add_option("eagle_keyword_tags_enabled", shared.OptionInfo(False, "キーワード対応表による自動タグ付けを有効にする", section=section))
+    shared.opts.add_option("eagle_keyword_tag_rules", shared.OptionInfo(
+        [["", ""]], "キーワード → Eagleタグ（1行に1組）", gr.Dataframe,
+        {"headers": ["プロンプトのキーワード", "追加するEagleタグ"], "datatype": "str",
+         "type": "array", "row_count": (3, "dynamic"), "col_count": (2, "fixed"),
+         "interactive": True, "wrap": True}, section=section,
+        comment_after="<p>行を追加して対応表を作成し、Apply settingsで保存してください。空欄の行は無視します。複数のタグを付ける場合は同じキーワードの行を追加してください。</p>"))
+    shared.opts.add_option("eagle_keyword_tag_match_mode", shared.OptionInfo(
+        "contains", "キーワードの一致方法", gr.Radio,
+        {"choices": [("部分一致（指定した語句を含む）", "contains"), ("項目一致（カンマ区切りの項目に一致）", "token")]}, section=section,
+        comment_after="<p>ポジティブプロンプトだけを判定します。アンダースコアと空白を同一視します。項目一致では通常の括弧や強調の数値を除いて比較します。</p>"))
+    shared.opts.add_option("eagle_keyword_tags_ignore_case", shared.OptionInfo(True, "キーワードの大文字・小文字を区別しない", section=section))
     # txt: server_url
     shared.opts.add_option("outside_server_url_port", shared.OptionInfo("", "Outside Eagle server connection (url:port)", section=("eagle_pnginfo", "Eagle Pnginfo")))
     # specify Eagle folderID
@@ -67,6 +81,15 @@ def on_image_saved(params:script_callbacks.ImageSaveParams):
             _tags = gen.generate_from_p(shared.opts.additional_tags_to_eagle)
             if _tags and len(_tags) > 0:
                 tags += _tags
+
+        if getattr(shared.opts, "eagle_keyword_tags_enabled", False):
+            image_prompt = saved_positive_prompt(info, pos_prompt)
+            tags += matching_tags(
+                image_prompt, shared.opts.eagle_keyword_tag_rules,
+                shared.opts.eagle_keyword_tag_match_mode,
+                shared.opts.eagle_keyword_tags_ignore_case,
+            )
+        tags = list(dict.fromkeys(tags))
 
         def _get_folderId(folder_name_or_id, allow_create_new_folder, server_url="http://localhost", port=41595):
             _ret = api_util.find_or_create_folder(folder_name_or_id, allow_create_new_folder, server_url, port)
