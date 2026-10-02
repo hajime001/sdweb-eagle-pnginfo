@@ -18,6 +18,16 @@ def dprint(str):
 
 path_root = paths.script_path
 
+def keyword_rules_table(**kwargs):
+    # 初期化専用の引数はfactory内に置く。WebUIはcomponent_argsを
+    # 初期設定読み込み時のgr.updateにも渡すため、ここへ分離する。
+    return gr.Dataframe(
+        headers=["プロンプトのキーワード", "追加するEagleタグ"], datatype="str",
+        type="array", row_count=(3, "dynamic"), col_count=(2, "fixed"),
+        wrap=True, **kwargs,
+    )
+
+
 def on_ui_settings():
     # flg: Enable/Disable
     shared.opts.add_option("enable_eagle_integration", shared.OptionInfo(False, "Send all image to Eagle", section=("eagle_pnginfo", "Eagle Pnginfo")))
@@ -32,10 +42,8 @@ def on_ui_settings():
     section = ("eagle_pnginfo", "Eagle Pnginfo")
     shared.opts.add_option("eagle_keyword_tags_enabled", shared.OptionInfo(False, "キーワード対応表による自動タグ付けを有効にする", section=section))
     shared.opts.add_option("eagle_keyword_tag_rules", shared.OptionInfo(
-        [["", ""]], "キーワード → Eagleタグ（1行に1組）", gr.Dataframe,
-        {"headers": ["プロンプトのキーワード", "追加するEagleタグ"], "datatype": "str",
-         "type": "array", "row_count": (3, "dynamic"), "col_count": (2, "fixed"),
-         "interactive": True, "wrap": True}, section=section,
+        [["", ""]], "キーワード → Eagleタグ（1行に1組）", keyword_rules_table,
+        {"interactive": True}, section=section,
         comment_after="<p>行を追加して対応表を作成し、Apply settingsで保存してください。空欄の行は無視します。複数のタグを付ける場合は同じキーワードの行を追加してください。</p>"))
     shared.opts.add_option("eagle_keyword_tag_match_mode", shared.OptionInfo(
         "contains", "キーワードの一致方法", gr.Radio,

@@ -44,6 +44,24 @@ class IntegrationTests(unittest.TestCase):
         radio = mode.component(value=mode.default, label=mode.label, **mode.component_args)
         self.assertEqual(radio.preprocess("token"), "token")
 
+    def test_settings_initial_load_and_apply_update(self):
+        import gradio as gr
+        from gradio.blocks import postprocess_update_dict
+        extension = self.load_extension()
+        extension.on_ui_settings()
+        for name in ("eagle_keyword_tag_rules", "eagle_keyword_tag_match_mode"):
+            option = self.options[name]
+            component = option.component(value=option.default, label=option.label, **option.component_args)
+            values = [option.default]
+            if name == "eagle_keyword_tag_rules":
+                values.append([["blue hair", "青髪"]])
+            for value in values:
+                # WebUIのget_value_for_settingと同じgeneric updateを通す。
+                update = gr.update(value=value, **option.component_args)
+                processed = postprocess_update_dict(component, update)
+                expected = component.postprocess(value)
+                self.assertEqual(processed["value"], expected)
+
     def test_export_uses_saved_positive_and_preserves_tags(self):
         extension = self.load_extension()
         extension.on_ui_settings()
